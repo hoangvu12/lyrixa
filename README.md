@@ -4,6 +4,18 @@ Lyrixa is a cache-first lyrics API built on Cloudflare Workers and D1.
 
 It returns word-level lyrics when available. If the word-level provider is unavailable, it can return synced line-level lyrics as a short-lived fallback.
 
+Live API:
+
+```txt
+https://lyrixa.nguyenvu.dev
+```
+
+Repository:
+
+```txt
+https://github.com/hoangvu12/lyrixa
+```
+
 ## API
 
 ### Health
@@ -12,10 +24,22 @@ It returns word-level lyrics when available. If the word-level provider is unava
 GET /health
 ```
 
+Example:
+
+```txt
+https://lyrixa.nguyenvu.dev/health
+```
+
 ### Get Lyrics
 
 ```txt
 GET /v1/lyrics?title=Bohemian%20Rhapsody&artist=Queen&duration=354
+```
+
+Example:
+
+```txt
+https://lyrixa.nguyenvu.dev/v1/lyrics?title=Bohemian%20Rhapsody&artist=Queen&duration=354
 ```
 
 The API checks D1 first. On a cache miss, it tries live providers and stores the result.
@@ -47,7 +71,48 @@ Refresh does a slower lookup and updates the cache.
 GET /v1/search?q=queen
 ```
 
+Example:
+
+```txt
+https://lyrixa.nguyenvu.dev/v1/search?q=queen
+```
+
 Search reads from cached lyrics only.
+
+## Response Shape
+
+Successful lyrics responses include:
+
+```json
+{
+  "status": "found",
+  "cache": "hit",
+  "lyricsType": "word",
+  "source": "lyricsplus:prjktla",
+  "quality": "primary",
+  "lines": []
+}
+```
+
+`lyricsType` can be:
+
+- `word`
+- `synced`
+- `plain`
+- `instrumental`
+
+`cache` can be:
+
+- `hit`
+- `miss`
+- `stale`
+- `refreshed`
+- `negative_hit`
+
+`quality` can be:
+
+- `primary`
+- `temporary_fallback`
 
 ## Cache Rules
 
@@ -84,4 +149,10 @@ Create a Cloudflare D1 database, set the database ID in `wrangler.jsonc`, run re
 ```txt
 bun run db:migrate:remote
 bun run deploy
+```
+
+Current production domain:
+
+```txt
+https://lyrixa.nguyenvu.dev
 ```
