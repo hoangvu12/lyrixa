@@ -44,6 +44,8 @@ https://lyrixa.nguyenvu.dev/v1/lyrics?title=Bohemian%20Rhapsody&artist=Queen&dur
 
 The API checks D1 first. On a cache miss, it tries live providers and stores the result.
 
+`duration` is optional, but strongly recommended. It helps Lyrixa avoid returning the wrong version of a song, such as a radio edit, live version, extended version, or 10-minute version.
+
 Possible responses:
 
 - `200` with lyrics
@@ -116,6 +118,8 @@ Successful lyrics responses include:
 
 ## Cache Rules
 
+- Requests with `duration` only match cached lyrics with a close duration.
+- Requests without `duration` can use title and artist fallback matches.
 - Word-level lyrics are cached for 90 days.
 - Synced lyrics are cached for 30 days.
 - Plain lyrics are cached for 14 days.

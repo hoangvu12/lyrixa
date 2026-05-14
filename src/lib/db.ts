@@ -10,6 +10,13 @@ export async function findLyricsByKeys(db: D1Database, keys: LookupKey[]): Promi
   return result ?? null;
 }
 
+export async function findLyricsByKeysForTrack(db: D1Database, track: TrackForLyrics, keys: LookupKey[]): Promise<LyricsRecord | null> {
+  const record = await findLyricsByKeys(db, keys);
+  if (!record) return null;
+  if (track.duration === null || record.duration === null) return record;
+  return Math.abs(track.duration - record.duration) <= 15 ? record : null;
+}
+
 export async function upsertLookupJob(db: D1Database, key: string, status: string): Promise<void> {
   const timestamp = now();
   await db.prepare(

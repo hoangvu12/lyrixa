@@ -15,12 +15,15 @@ export function buildLookupKeys(track: TrackForLyrics): LookupKey[] {
   const album = normalizeText(track.album);
   const duration = roundedDuration(track.duration);
 
-  const candidates: LookupKey[] = [
-    { type: "exact", key: joinKey([artist, title, album, duration]) },
-    { type: "no_album", key: joinKey([artist, title, duration]) },
-    { type: "no_duration", key: joinKey([artist, title, album]) },
-    { type: "simple", key: joinKey([artist, title]) }
-  ];
+  const candidates: LookupKey[] = duration
+    ? [
+      { type: "exact", key: joinKey([artist, title, album, `dur:${duration}`]) },
+      { type: "no_album", key: joinKey([artist, title, `dur:${duration}`]) }
+    ]
+    : [
+      { type: "no_duration", key: joinKey([artist, title, album]) },
+      { type: "simple", key: joinKey([artist, title]) }
+    ];
 
   const seen = new Set<string>();
   return candidates.filter((candidate) => {

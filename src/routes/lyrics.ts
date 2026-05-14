@@ -1,5 +1,5 @@
 import type { Env, LyricsRecord, PreferLyrics } from "../types";
-import { findLyricsByKeys } from "../lib/db";
+import { findLyricsByKeysForTrack } from "../lib/db";
 import { buildLookupKeys } from "../lib/keys";
 import { parseTrackFromSearchParams } from "../lib/normalize";
 import { badRequest, json } from "../lib/response";
@@ -15,7 +15,7 @@ export async function lyrics(request: Request, env: Env): Promise<Response> {
   if (!["word", "synced", "any"].includes(prefer)) return badRequest("prefer must be word, synced, or any");
 
   const keys = buildLookupKeys(trackOrResponse);
-  const record = await findLyricsByKeys(env.DB, keys);
+  const record = await findLyricsByKeysForTrack(env.DB, trackOrResponse, keys);
   const timestamp = now();
   if (record) {
     await env.DB.prepare("UPDATE lyrics SET last_requested_at = ?, hit_count = hit_count + 1 WHERE id = ?").bind(timestamp, record.id).run();
