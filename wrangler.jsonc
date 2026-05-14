@@ -2,6 +2,12 @@
   "name": "lyrixa",
   "main": "src/index.ts",
   "compatibility_date": "2026-05-14",
+  "routes": [
+    {
+      "pattern": "lyrixa.nguyenvu.dev",
+      "custom_domain": true
+    }
+  ],
   "d1_databases": [
     {
       "binding": "DB",
