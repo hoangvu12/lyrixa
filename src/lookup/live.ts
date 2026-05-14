@@ -46,7 +46,7 @@ export async function lookupAndCache(db: D1Database, track: TrackForLyrics, keys
 async function runProviders(track: TrackForLyrics, options: LookupOptions): Promise<LookupOutcome> {
   const errors: string[] = [];
   const lyricsPlusTimeout = options.mode === "fast" ? providerTimeouts.lyricsPlus.fast : providerTimeouts.lyricsPlus.background;
-  const lyricsPlus = await tryProvider("lyricsplus:prjktla", () => lookupLyricsPlus(track, lyricsPlusTimeout));
+  const lyricsPlus = await tryLyricsPlus(track, options.mode, lyricsPlusTimeout);
   if (lyricsPlus.status === "found") return { status: "found", result: lyricsPlus.result };
   if (lyricsPlus.status === "unavailable") errors.push(lyricsPlus.error);
 
@@ -71,6 +71,17 @@ type ProviderOutcome =
   | { status: "found"; result: ProviderResult }
   | { status: "not_found" }
   | { status: "unavailable"; provider: string; error: string };
+
+async function tryLyricsPlus(track: TrackForLyrics, mode: LookupOptions["mode"], timeoutMs: number): Promise<ProviderOutcome> {
+  const first = await tryProvider("lyricsplus:prjktla", () => lookupLyricsPlus(track, timeoutMs));
+  if (first.status !== "unavailable") return first;
+
+  const retryTimeout = mode === "fast" ? 1000 : 3000;
+  const retry = await tryProvider("lyricsplus:prjktla", () => lookupLyricsPlus(track, retryTimeout));
+  return retry.status === "unavailable"
+    ? { status: "unavailable", provider: "lyricsplus:prjktla", error: `${first.error}; retry failed: ${retry.error}` }
+    : retry;
+}
 
 async function tryProvider(provider: string, lookup: () => Promise<ProviderResult | null>): Promise<ProviderOutcome> {
   try {
