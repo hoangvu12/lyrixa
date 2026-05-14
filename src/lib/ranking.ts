@@ -2,12 +2,23 @@ import type { TrackForLyrics } from "../types";
 import { normalizeText } from "./normalize";
 
 export function isStrictMatch(requested: TrackForLyrics, candidate: TrackForLyrics): boolean {
-  if (normalizeText(requested.title) !== normalizeText(candidate.title)) return false;
   if (!isArtistMatch(requested.artist, candidate.artist)) return false;
+  if (!isTitleMatch(requested.title, candidate.title, requested.artist)) return false;
   if (requested.duration !== null && candidate.duration !== null) {
     return Math.abs(requested.duration - candidate.duration) <= 15;
   }
   return true;
+}
+
+function isTitleMatch(requested: string, candidate: string, artist: string): boolean {
+  const requestedTitle = normalizeText(requested);
+  const candidateTitle = normalizeText(candidate);
+  if (requestedTitle === candidateTitle) return true;
+
+  const artistName = normalizeText(artist);
+  const artistParts = artistName.split(" ").filter(Boolean);
+  const suffixes = [artistName, compact(artistName), ...artistParts].filter(Boolean);
+  return suffixes.some((suffix) => candidateTitle === `${requestedTitle} ${suffix}` || candidateTitle === `${suffix} ${requestedTitle}`);
 }
 
 function isArtistMatch(requested: string, candidate: string): boolean {
