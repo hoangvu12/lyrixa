@@ -46,6 +46,7 @@ async function lookupLive(env: Env, track: Parameters<typeof buildLookupKeys>[0]
       quality: result.temporaryFallback ? "temporary_fallback" : "primary",
       unavailableProvider: result.unavailableProvider,
       confidence: result.result.confidence,
+      features: result.result.features,
       lines: result.result.lines,
       plainLyrics: result.result.plainLyrics,
       instrumental: result.result.instrumental
@@ -56,6 +57,7 @@ async function lookupLive(env: Env, track: Parameters<typeof buildLookupKeys>[0]
 }
 
 function recordToResponse(record: LyricsRecord, cache: "hit" | "stale") {
+  const lines = JSON.parse(record.lines_json);
   return {
     status: "found",
     cache,
@@ -68,10 +70,33 @@ function recordToResponse(record: LyricsRecord, cache: "hit" | "stale") {
     lyricsType: record.lyrics_type,
     source: record.source,
     confidence: record.confidence,
-    lines: JSON.parse(record.lines_json),
+    features: featuresForLines(lines),
+    lines,
     plainLyrics: record.plain_lyrics,
     instrumental: record.instrumental === 1,
     cachedAt: record.cached_at,
     expiresAt: record.expires_at
   };
+}
+
+function featuresForLines(lines: unknown) {
+  if (!Array.isArray(lines)) return undefined;
+  const timedLines = lines.filter((line): line is { time: number; endTime?: number } => typeof line === "object" && line !== null && typeof (line as { time?: unknown }).time === "number");
+  const lineEndTime = timedLines.some((line) => typeof line.endTime === "number");
+  if (!lineEndTime) return undefined;
+  return { lineEndTime, overlappingLines: hasOverlappingLines(timedLines) };
+}
+
+function hasOverlappingLines(lines: { time: number; endTime?: number }[]): boolean {
+  for (let index = 0; index < lines.length; index++) {
+    const current = lines[index];
+    if (typeof current.endTime !== "number") continue;
+    for (let otherIndex = index + 1; otherIndex < lines.length; otherIndex++) {
+      const other = lines[otherIndex];
+      if (typeof other.endTime !== "number") continue;
+      if (other.time >= current.endTime) break;
+      if (current.time < other.endTime && other.time < current.endTime) return true;
+    }
+  }
+  return false;
 }

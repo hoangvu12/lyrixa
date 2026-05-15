@@ -22,5 +22,9 @@ export const providerTimeouts = {
   qqMusic: {
     fast: 1000,
     background: 2000
+  },
+  plainFallback: {
+    fast: 2500,
+    background: 8000
   }
 } as const;

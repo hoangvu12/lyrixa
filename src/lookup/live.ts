@@ -1,7 +1,9 @@
 import type { LookupKey, TrackForLyrics } from "../types";
 import { storeLyrics, storeNegativeCache } from "../lib/db";
+import { pickBestProviderResult } from "../lib/result-ranking";
 import { createLyricsPlusLookup } from "../providers/lyricsplus";
 import { lookupLrclibSearch } from "../providers/lrclib";
+import { lookupGenius, lookupLyricsOvh } from "../providers/plain-fallbacks";
 import { providerTimeouts } from "../providers/timeouts";
 import type { ProviderResult } from "../providers/types";
 
@@ -17,7 +19,7 @@ interface LookupOutcome {
   error?: string;
 }
 
-const lookupLyricsPlus = createLyricsPlusLookup("https://lyricsplus.prjktla.workers.dev", "lyricsplus:prjktla");
+const lookupLyricsPlus = createLyricsPlusLookup("https://lyrics.geeked.wtf", "lyricsplus:prjktla");
 
 export async function lookupAndCache(db: D1Database, track: TrackForLyrics, keys: LookupKey[], options: LookupOptions): Promise<LookupOutcome> {
   const result = await runProviders(track, options);
@@ -47,21 +49,37 @@ async function runProviders(track: TrackForLyrics, options: LookupOptions): Prom
   const errors: string[] = [];
   const lyricsPlusTimeout = options.mode === "fast" ? providerTimeouts.lyricsPlus.fast : providerTimeouts.lyricsPlus.background;
   const lyricsPlus = await tryLyricsPlus(track, options.mode, lyricsPlusTimeout);
-  if (lyricsPlus.status === "found") return { status: "found", result: lyricsPlus.result };
+  const primary = pickBestFromOutcomes(track, [lyricsPlus]);
+  if (primary) return { status: "found", result: primary.result, temporaryFallback: primary.temporaryFallback };
   if (lyricsPlus.status === "unavailable") errors.push(lyricsPlus.error);
+
+  const fallbackOutcomes: ProviderOutcome[] = [];
 
   const lrclibTimeout = options.mode === "fast" ? providerTimeouts.lrclibSearch.fast : providerTimeouts.lrclibSearch.background;
   if (lrclibTimeout > 0) {
     const lrclib = await tryProvider("lrclib", () => lookupLrclibSearch(track, lrclibTimeout));
-    if (lrclib.status === "found") {
-      return {
-        status: "found",
-        result: lrclib.result,
-        temporaryFallback: lyricsPlus.status === "unavailable",
-        unavailableProvider: lyricsPlus.status === "unavailable" ? "lyricsplus:prjktla" : undefined
-      };
-    }
+    fallbackOutcomes.push(lrclib);
     if (lrclib.status === "unavailable") errors.push(lrclib.error);
+  }
+
+  const lyricsOvh = await tryProvider("lyrics.ovh", () => lookupLyricsOvh(track, providerTimeouts.plainFallback.fast));
+  fallbackOutcomes.push(lyricsOvh);
+  if (lyricsOvh.status === "unavailable") errors.push(lyricsOvh.error);
+
+  if (options.mode === "background") {
+    const genius = await tryProvider("genius", () => lookupGenius(track, providerTimeouts.plainFallback.background));
+    fallbackOutcomes.push(genius);
+    if (genius.status === "unavailable") errors.push(genius.error);
+  }
+
+  const fallback = pickBestFromOutcomes(track, fallbackOutcomes);
+  if (fallback) {
+    return {
+      status: "found",
+      result: fallback.result,
+      temporaryFallback: lyricsPlus.status === "unavailable" || fallback.temporaryFallback,
+      unavailableProvider: lyricsPlus.status === "unavailable" ? "lyricsplus:prjktla" : undefined
+    };
   }
 
   return errors.length > 0 ? { status: "error", error: errors.join("; ") } : { status: "not_found" };
@@ -92,4 +110,8 @@ async function tryProvider(provider: string, lookup: () => Promise<ProviderResul
     if (message.includes("404") || message.includes("400")) return { status: "not_found" };
     return { status: "unavailable", provider, error: message };
   }
+}
+
+function pickBestFromOutcomes(track: TrackForLyrics, outcomes: ProviderOutcome[]) {
+  return pickBestProviderResult(track, outcomes.flatMap((outcome) => outcome.status === "found" ? [outcome.result] : []));
 }

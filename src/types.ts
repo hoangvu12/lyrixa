@@ -17,6 +17,7 @@ export interface LyricWord {
 
 export interface LyricLine {
   time: number;
+  endTime?: number;
   text: string;
   words?: LyricWord[];
 }

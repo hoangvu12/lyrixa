@@ -7,6 +7,7 @@ import { lookupLrclibExact, lookupLrclibSearch } from "../src/providers/lrclib";
 import { createLyricsPlusLookup } from "../src/providers/lyricsplus";
 import { lookupQqMusic } from "../src/providers/qq-music";
 import { lookupSimpMusic } from "../src/providers/simpmusic";
+import { lookupChartLyrics, lookupGenius, lookupLyricsOvh, lookupVagalume } from "../src/providers/plain-fallbacks";
 import type { ProviderResult } from "../src/providers/types";
 import { providerTimeouts } from "../src/providers/timeouts";
 import { isStrictMatch } from "../src/lib/ranking";
@@ -68,7 +69,11 @@ const providers = [
   { label: "simpmusic", run: lookupSimpMusic, timeoutMs: providerTimeouts.simpMusic.background },
   { label: "lrclib:get", run: lookupLrclibExact, timeoutMs: providerTimeouts.lrclibExact.background },
   { label: "lrclib:search", run: lookupLrclibSearch, timeoutMs: providerTimeouts.lrclibSearch.background },
-  { label: "qq-music", run: lookupQqMusic, timeoutMs: providerTimeouts.qqMusic.background }
+  { label: "qq-music", run: lookupQqMusic, timeoutMs: providerTimeouts.qqMusic.background },
+  { label: "genius", run: lookupGenius, timeoutMs: providerTimeouts.plainFallback.background },
+  { label: "vagalume", run: lookupVagalume, timeoutMs: providerTimeouts.plainFallback.background },
+  { label: "lyrics.ovh", run: lookupLyricsOvh, timeoutMs: providerTimeouts.plainFallback.background },
+  { label: "chartlyrics", run: lookupChartLyrics, timeoutMs: providerTimeouts.plainFallback.background }
 ].filter((provider) => providerFilter === "all" || providerFilter.split(/[ ,]+/).includes(provider.label));
 
 if (providers.length === 0) {
@@ -133,7 +138,8 @@ function classifyResult(result: ProviderResult): LyricsType {
 function qualityWarnings(track: BenchmarkTrack, result: ProviderResult, lyricsType: LyricsType): string[] {
   const warnings: string[] = [];
   const expected = new Set(track.expect ?? []);
-  if (expected.has("synced") || expected.has("plain")) expected.add("word");
+  if (expected.has("word")) expected.add("synced");
+  if (expected.has("word") || expected.has("synced")) expected.add("plain");
   if (track.expect && !expected.has(lyricsType)) warnings.push(`expected ${[...expected].join("/")} but got ${lyricsType}`);
   if ((lyricsType === "synced" || lyricsType === "word") && result.lines.length < 4) warnings.push("too few synced lines");
   if (lyricsType === "word" && !result.lines.some((line) => line.words && line.words.length > 0)) warnings.push("word type without word timings");

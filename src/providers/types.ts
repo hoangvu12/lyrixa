@@ -1,5 +1,10 @@
 import type { LyricLine } from "../types";
 
+export interface LyricsFeatures {
+  lineEndTime: boolean;
+  overlappingLines: boolean;
+}
+
 export interface ProviderResult {
   lyricsType: "word" | "synced" | "plain" | "instrumental";
   source: string;
@@ -9,6 +14,7 @@ export interface ProviderResult {
   sourceAlbum?: string;
   sourceDuration?: number | null;
   confidence: number;
+  features?: LyricsFeatures;
   lines: LyricLine[];
   plainLyrics: string;
   syncedLyrics: string;
