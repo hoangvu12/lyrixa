@@ -14,27 +14,56 @@ export function parseTtml(ttml: string): LyricLine[] {
     const attributes = paragraphSource.slice(0, openEnd);
     const body = paragraphSource.slice(openEnd + 1, close);
     const lineStart = parseTime(attribute(attributes, "begin"));
+    const lineEnd = parseTime(attribute(attributes, "end"));
     if (lineStart === null) continue;
 
-    const words: LyricWord[] = [];
-    const spans = body.split("<span").slice(1);
-    for (const spanSource of spans) {
-      const spanClose = spanSource.indexOf("</span>");
-      const spanOpenEnd = spanSource.indexOf(">");
-      if (spanClose === -1 || spanOpenEnd === -1 || spanOpenEnd > spanClose) continue;
-      const spanAttributes = spanSource.slice(0, spanOpenEnd);
-      const spanBody = spanSource.slice(spanOpenEnd + 1, spanClose);
-      const start = parseTime(attribute(spanAttributes, "begin"));
-      const end = parseTime(attribute(spanAttributes, "end"));
-      const text = stripTags(spanBody).trim();
-      if (start === null || end === null || !text) continue;
-      words.push({ time: start, endTime: end, text: decodeEntities(text) });
+    const words = parseTimedSpans(body);
+    const text = words.map((word) => word.text).join(" ").replace(/\s+/g, " ").trim();
+    if (text) lines.push({ time: lineStart, endTime: lineEnd ?? undefined, text, words });
+  }
+  return addInstrumentalGaps(lines);
+}
+
+function addInstrumentalGaps(lines: LyricLine[]): LyricLine[] {
+  const result: LyricLine[] = [];
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
+    const previous = result[result.length - 1];
+    if (previous && typeof previous.endTime === "number" && line.time - previous.endTime >= 8) {
+      result.push({ time: previous.endTime, endTime: line.time, text: "..." });
+    }
+    result.push(line);
+  }
+  return result;
+}
+
+function parseTimedSpans(body: string): LyricWord[] {
+  const spans = [...body.matchAll(spanPattern)];
+  const words: LyricWord[] = [];
+  let pending: LyricWord | null = null;
+  let previousEnd = 0;
+
+  for (const span of spans) {
+    const gap = body.slice(previousEnd, span.index ?? 0);
+    const hasSeparator = stripTags(gap).trim().length > 0 || /\s/.test(gap);
+    previousEnd = (span.index ?? 0) + span[0].length;
+
+    const start = parseTime(attribute(span[1] ?? "", "begin"));
+    const end = parseTime(attribute(span[1] ?? "", "end"));
+    const text = decodeEntities(stripTags(span[2] ?? "").trim());
+    if (start === null || end === null || !text) continue;
+
+    if (pending && !hasSeparator) {
+      pending.text += text;
+      pending.endTime = end;
+      continue;
     }
 
-    const text = words.map((word) => word.text).join(" ").replace(/\s+/g, " ").trim();
-    if (text) lines.push({ time: lineStart, text, words });
+    pending = { time: start, endTime: end, text };
+    words.push(pending);
   }
-  return lines;
+
+  return words;
 }
 
 function attribute(source: string, name: string): string | null {
