@@ -18,7 +18,9 @@ export function parseTtml(ttml: string): LyricLine[] {
     if (lineStart === null) continue;
 
     const words = parseTimedSpans(body);
-    const text = words.map((word) => word.text).join(" ").replace(/\s+/g, " ").trim();
+    const text = (words.length > 0 ? words.map((word) => word.text).join(" ") : decodeEntities(stripTags(body)))
+      .replace(/\s+/g, " ")
+      .trim();
     if (text) lines.push({ time: lineStart, endTime: lineEnd ?? undefined, text, words });
   }
   return addInstrumentalGaps(lines);

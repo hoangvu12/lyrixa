@@ -22,8 +22,9 @@ export function createLyricsPlusLookup(baseUrl: string, label: string) {
     const ttml = stringField(data, "ttml") ?? stringField(data, "lrc_ttml") ?? "";
     if (ttml) {
       const lines = parseTtml(ttml);
-      if (lines.length > 3 && lines.some((line) => line.words && line.words.length > 0)) {
-        return { lyricsType: "word", source: label, providerTrackId: "", sourceTitle: track.title, sourceArtist: track.artist, sourceAlbum: track.album, sourceDuration: track.duration, confidence: 0.88, features: featuresForLines(lines), lines, plainLyrics: lines.map((line) => line.text).join("\n"), syncedLyrics: "", instrumental: false };
+      if (lines.length > 3) {
+        const lyricsType = lines.some((line) => line.words && line.words.length > 0) ? "word" : "synced";
+        return { lyricsType, source: label, providerTrackId: "", sourceTitle: track.title, sourceArtist: track.artist, sourceAlbum: track.album, sourceDuration: track.duration, confidence: 0.88, features: featuresForLines(lines), lines, plainLyrics: lines.map((line) => line.text).join("\n"), syncedLyrics: "", instrumental: false };
       }
       return null;
     }
