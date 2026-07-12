@@ -7,13 +7,13 @@ import { refresh } from "./routes/refresh";
 import { search } from "./routes/search";
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     try {
       if (request.method === "OPTIONS") return optionsResponse();
 
       const url = new URL(request.url);
       if (request.method === "GET" && url.pathname === "/health") return health();
-      if (request.method === "GET" && url.pathname === "/v1/lyrics") return lyrics(request, env);
+      if (request.method === "GET" && url.pathname === "/v1/lyrics") return lyrics(request, env, ctx);
       if (request.method === "GET" && url.pathname === "/v1/search") return search(request, env);
       if (request.method === "POST" && url.pathname === "/v1/refresh") return refresh(request, env);
 

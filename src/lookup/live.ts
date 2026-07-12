@@ -9,6 +9,14 @@ import type { ProviderResult } from "../providers/types";
 
 interface LookupOptions {
   mode: "fast" | "background";
+  // When false, only the fast primary provider (LyricsPlus) is tried; the slow
+  // fallbacks (LRCLIB, lyrics.ovh, Genius) are skipped. Used by the user-facing
+  // cold-miss path, which warms the fallbacks in the background instead.
+  fallbacks?: boolean;
+  // When true, a clean "not found" outcome is not written to the negative cache.
+  // Used for the primary-only attempt so a miss there does not block the
+  // background fallback lookup from running and caching a real result.
+  skipNegativeCache?: boolean;
 }
 
 interface LookupOutcome {
@@ -24,7 +32,7 @@ const lookupLyricsPlus = createLyricsPlusLookup("https://lyrics.geeked.wtf", "ly
 export async function lookupAndCache(db: D1Database, track: TrackForLyrics, keys: LookupKey[], options: LookupOptions): Promise<LookupOutcome> {
   const result = await runProviders(track, options);
   if (result.status !== "found" || !result.result) {
-    if (result.status === "not_found") await storeNegativeCache(db, track, keys, "providers");
+    if (result.status === "not_found" && !options.skipNegativeCache) await storeNegativeCache(db, track, keys, "providers");
     return result;
   }
 
@@ -52,6 +60,10 @@ async function runProviders(track: TrackForLyrics, options: LookupOptions): Prom
   const primary = pickBestFromOutcomes(track, [lyricsPlus]);
   if (primary) return { status: "found", result: primary.result, temporaryFallback: primary.temporaryFallback };
   if (lyricsPlus.status === "unavailable") errors.push(lyricsPlus.error);
+
+  if (options.fallbacks === false) {
+    return errors.length > 0 ? { status: "error", error: errors.join("; ") } : { status: "not_found" };
+  }
 
   const fallbackOutcomes: ProviderOutcome[] = [];
 
